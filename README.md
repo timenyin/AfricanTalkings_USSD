@@ -1,269 +1,286 @@
-Here’s your **README** rewritten in clean raw GitHub Markdown format, so when you paste it into GitHub it will render properly:
+Got it 👍 — here’s the **entire thing fully in Markdown** so you can copy-paste directly into your `README.md`:
 
 ```markdown
-# AfricanTalkings USSD Application
+# Balanceè USSD Service
 
-📋 **Project Overview**  
-A comprehensive USSD application built with Spring Boot and Africa's Talking API that provides various services including SOS assistance, financial services, product purchases, and agent support.
-
-🚀 **Current Status:** 90% Complete  
-The application is fully functional with complete USSD menu navigation, session management, and service integration. The main implementation is complete with minor enhancements needed for SMS notifications.
+A **Spring Boot USSD application** for **Balanceè Tech Solution**, integrated with the **Africa's Talking USSD platform**.
 
 ---
 
-## 🏗️ Architecture
+## 🚀 Quick Overview
+- **Service Code:** `*347*426#`  
+- **Framework:** Spring Boot 3.5.5 + Java 21  
+- **Integration:** Africa's Talking USSD API  
+- **Status:** ✅ Development Complete | ❌ Production Connection Issues  
 
-src/
-├── main/
-│ ├── java/com/harmony2k/africantalkings_ussd/
-│ │ ├── AfricanTalkingsUssdApplication.java # Main application class
-│ │ ├── config/
-│ │ │ └── AfricasTalkingConfig.java # Africa's Talking SDK configuration
-│ │ ├── controller/
-│ │ │ └── UssdController.java # USSD request handler
-│ │ ├── model/
-│ │ │ └── Session.java # Session management model
-│ │ └── service/
-│ │ ├── BalanceService.java # Wallet and credit balance management
-│ │ └── SessionService.java # Session storage and cleanup
-│ └── resources/
-│ └── application.properties # Configuration properties
+---
+
+## 📋 Project Structure
+
+AfricanTalkings_USSD/
+├── src/main/java/com/harmony2k/africantalkings_ussd/
+│ ├── AfricanTalkingsUssdApplication.java # Main application
+│ ├── config/
+│ │ └── AfricasTalkingConfig.java # Africa's Talking configuration
+│ ├── controller/
+│ │ └── UssdController.java # USSD endpoints
+│ ├── service/
+│ │ └── UssdService.java # USSD business logic
+│ └── model/
+│ ├── Session.java # Session management
+│ └── Customer.java # Customer data model
+├── src/main/resources/
+│ └── application.properties # Configuration
+├── scripts/
+│ ├── start_application.bat # Windows startup
+│ ├── start_ngrok.bat # Ngrok tunnel
+│ ├── test_ussd_complete.sh # Complete flow test
+│ └── test_live_ussd.sh # Live environment test
 └── pom.xml # Maven dependencies
 
-Copy code
 
 
----
-
-## ✅ Implemented Features
-
-- **USSD Menu System:** Complete multi-level menu navigation  
-- **Session Management:** Automatic session creation and expiration  
-- **Balance Services:** Wallet and credit balance management  
-- **SOS Services:** Towing assistance and mechanic finding  
-- **Product Services:** Fuel, accessories, and spare parts ordering  
-- **Agent Services:** Direct agent connection and callback requests  
-- **Error Handling:** Comprehensive exception handling  
-
----
-
-## 🔧 Setup Instructions
+## 🔧 Technical Setup
 
 ### Prerequisites
-- Java JDK 17 or 21  
-- Apache Maven  
-- Africa's Talking account  
-- ngrok (for testing)  
+- Java 21  
+- Maven 3.6+  
+- Ngrok account  
+- Africa's Talking live account  
 
-### Installation
-1. Clone the repository  
-2. Update `application.properties` with your Africa's Talking credentials:
-
-   ```properties
-   africastalking.username=your_sandbox_username
-   africastalking.apikey=your_api_key_here
+### Configuration
+```properties
+# application.properties
+server.port=8080
+africastalking.username=Balancee
+africastalking.api.key=your_api_key_here
+ngrok.url=https://your-ngrok-url.ngrok-free.app
 ````
 
-3. Build the project:
+### Dependencies
 
-   ```bash
-   mvn clean compile
-   ```
-
-4. Run the application:
-
-   ```bash
-   mvn spring-boot:run
-   ```
-
-### Africa's Talking Configuration
-
-* Create a USSD channel in your Africa's Talking dashboard
-
-* Set the callback URL to your ngrok URL:
-
-  ```
-  https://your-ngrok-url.ngrok.io/ussd/callback
-  ```
-
-* Configure the service code (e.g., `*384*12345#`)
+* Spring Boot 3.5.5
+* Africa's Talking Java SDK 3.4.11
+* Lombok
+* Redis (for session management)
 
 ---
 
-## 🧪 Testing
+## 🎯 USSD Flow
 
-### Local Testing
+**Complete User Journey:**
+
+1. Dial: `*347*426#`
+2. **Welcome:** Accept charges (₦6.98)
+3. **Authentication:** Enter phone number
+4. **Main Menu:**
+
+   * SOS or repairs
+   * Money matters ✅
+   * Product purchase
+   * Talk to agent
+
+**Money Services:**
+
+* Check balance
+* Add money
+* Transaction history
+
+---
+
+## 🧪 Sample Customer Data
+
+```java
+// Pre-loaded test customers
+Customer 1: 08100974728 (Test User) - Wallet: ₦15,250.00
+Customer 2: 08031111111 (John Doe) - Wallet: ₦5,000.00
+```
+
+---
+
+## 🛠️ API Endpoints
+
+| Endpoint          | Method | Purpose                  |
+| ----------------- | ------ | ------------------------ |
+| `/ussd`           | POST   | Main USSD callback       |
+| `/ussd/health`    | GET    | Service health check     |
+| `/ussd/config`    | GET    | Configuration details    |
+| `/ussd/test`      | GET    | Basic functionality test |
+| `/ussd/simulate`  | POST   | Simulate USSD requests   |
+| `/ussd/fast-test` | POST   | Quick connectivity test  |
+
+---
+
+## 🚨 Current Issue: Production Connectivity
+
+### Problem Description
+
+* ✅ Local Development: All USSD flows work perfectly
+* ✅ Manual Testing: All endpoints respond correctly (0.8s response time)
+* ✅ Ngrok Tunnel: Active and accessible
+* ❌ Production USSD: Fails with timeout errors
+
+**Error Messages from Africa's Talking Dashboard**
+
+```
+Error: URL Call Failed. Callback failed to respond before timeout: 10 seconds
+Status: Failed
+Final Response: "END Dear customer, the network is experiencing technical problems..."
+```
+
+---
+
+## ✅ Evidence of Working System
+
+### 1. Server Health Check
 
 ```bash
-# Test main menu
-curl -X POST "http://localhost:8080/ussd/callback" -d "phoneNumber=+254700000000&text="
-
-# Test balance check
-curl -X POST "http://localhost:8080/ussd/callback" -d "phoneNumber=+254700000000&text=2*1"
+curl https://cd7e5ae76b3f.ngrok-free.app/ussd/health
 ```
 
-### Production Testing
+**Response:**
 
-* Dial your USSD code from a mobile device
-* Navigate through the menu options
-* Test all service flows
-
----
-
-## 🚀 Next Steps & Collaboration
-
-### Immediate Enhancements Needed
-
-* **SMS Integration:** Implement SMS notifications for completed actions
-* **User Authentication:** Add NIN/BVN/Phone number verification
-* **Payment Integration:** Connect with payment gateways for transactions
-
----
-
-## 🔑 Authentication Implementation Guide
-
-### Create `AuthenticationService`
-
-```java
-@Service
-public class AuthenticationService {
-    public boolean verifyNIN(String nin, String phoneNumber) {
-        // Integrate with NIN verification API
-        return true; // Placeholder
-    }
-    
-    public boolean verifyBVN(String bvn, String phoneNumber) {
-        // Integrate with BVN verification API
-        return true; // Placeholder
-    }
+```json
+{
+  "status": "LIVE",
+  "service": "Balanceè USSD",
+  "callback_url": "https://cd7e5ae76b3f.ngrok-free.app/ussd",
+  "service_code": "*347*426#",
+  "environment": "LIVE PRODUCTION"
 }
 ```
 
-### Add authentication flow to `UssdController`
+### 2. USSD Response Time Test
 
-```java
-// In handleUssd method, add authentication check
-if (!isUserAuthenticated(session)) {
-    return handleAuthenticationFlow(parts, session);
-}
-
-private String handleAuthenticationFlow(String[] parts, Session session) {
-    if (parts.length == 1) {
-        return buildCON(
-            "Welcome to Balanceè. Please verify your identity:",
-            "1. Verify with NIN",
-            "2. Verify with BVN",
-            "3. Verify with Phone Number"
-        );
-    }
-    // Implement verification logic
-}
+```bash
+time curl -X POST "https://cd7e5ae76b3f.ngrok-free.app/ussd" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "sessionId=TEST123&phoneNumber=08100974728&serviceCode=*347*426%23&text=&networkCode=62130"
 ```
 
-### Update `Session` model
+**Result:**
 
-```java
-public class Session {
-    private boolean authenticated = false;
-    // ... existing code
-}
+```
+real 0m0.803s ✅ (Well under 10-second timeout)
 ```
 
----
+### 3. Ngrok Tunnel Status
 
-## 👥 Team Collaboration Areas
+```bash
+curl http://localhost:4040/api/tunnels
+```
 
-* **Frontend Development:** Web dashboard for admin management
-* **Payment Integration:** Flutterwave, Paystack, or other payment processors
-* **Database Integration:** PostgreSQL/MongoDB for persistent storage
-* **API Development:** REST APIs for mobile app integration
-* **Admin Features:** User management, transaction monitoring, analytics
+**Result:** Tunnel active with 21 connections, 41 HTTP requests ✅
 
 ---
 
-## 📊 Current Implementation Details
+## 🔍 Root Cause Analysis
 
-### Services Available
+The issue is **NOT** with our application code. Evidence shows:
 
-* **SOS Services:** Towing help and mechanic finding with location-based pricing
-* **Money Services:** Balance checking and money addition to wallet/credit
-* **Product Services:** Fuel, car accessories, and spare parts ordering
-* **Agent Services:** Direct agent connection and callback requests
+* Our server responds in `0.8s` (well under 10s timeout)
+* Ngrok tunnel is stable and accessible
+* All manual tests pass perfectly
+* Africa's Talking dashboard shows timeout, but our logs show **NO incoming requests**
 
-### Session Management
+**Likely causes:**
 
-* Sessions automatically expire after **90 seconds** of inactivity
-* Data persistence across menu navigation
-* Phone number-based session identification
-
-### Balance Management
-
-* Demo wallet and credit balances pre-configured
-* Support for balance inquiries and additions
-* Secure balance deduction methods
+* Platform-side routing issues
+* IP restrictions/whitelisting
+* Service activation problems
+* Network connectivity between Africa's Talking and our ngrok tunnel
 
 ---
 
-## 🐛 Troubleshooting
+## 🛠️ Troubleshooting Steps Taken
 
-| Issue                       | Solution                                          |
-| --------------------------- | ------------------------------------------------- |
-| ngrok authentication failed | Run `ngrok authtoken YOUR_AUTH_TOKEN`             |
-| SDK initialization failed   | Check Africa's Talking credentials                |
-| Port conflicts              | Change `server.port` in `application.properties`  |
-| USSD not responding         | Verify callback URL in Africa's Talking dashboard |
-
----
-
-## 📞 Support
-
-* **Africa's Talking API:** Check developer documentation
-* **Spring Boot:** Refer to Spring documentation
-* **Application-specific issues:** Check server logs for detailed error messages
+* ✅ Verified application starts without errors
+* ✅ All API endpoints respond correctly
+* ✅ Ngrok tunnel is active and stable
+* ✅ Africa's Talking configuration matches requirements
+* ✅ API key and username correct
+* ✅ USSD business logic works perfectly in testing
 
 ---
 
-## 🎯 Future Roadmap
+## 🔄 Testing Commands
 
-* User authentication with NIN/BVN
-* Payment gateway integration
-* Database persistence
-* Admin dashboard
-* Mobile application
-* Advanced analytics and reporting
-* Multi-language support
-* USSD push notifications
+```bash
+# Complete flow test
+./test_ussd_complete.sh
 
----
+# Live environment test
+./test_live_ussd.sh
 
-## 👥 Team Collaboration
-
-To contribute to this project:
-
-1. Fork the repository
-
-2. Create a feature branch:
-
-   ```bash
-   git checkout -b feature/your-feature
-   ```
-
-3. Implement your changes
-
-4. Add tests for new functionality
-
-5. Submit a pull request with a detailed description
-
-### Current priority areas for collaboration:
-
-* Authentication system implementation
-* Payment integration
-* Database schema design
-* Admin interface development
-
+# Speed test
+./test_speed.sh
 ```
 
 ---
 
-Do you also want me to **add shields (badges)** for Java, Spring Boot, and Africa’s Talking at the top of the README so it looks more professional on GitHub?
+## 📞 Africa's Talking Support Required
+
+**Information Provided to Support:**
+
+* Service Code: `*347*426#`
+* Callback URL: `https://cd7e5ae76b3f.ngrok-free.app/ussd`
+* API Username: `Balancee`
+* Company: Balancee Tech Solution
+
+**Requested Investigation:**
+
+* Verify USSD service `*347*426#` is properly activated and routed
+* Check for IP restrictions or whitelisting issues
+* Confirm callback URL is being called when USSD is dialed
+* Identify platform-side configuration problems
+
+---
+
+## 🚀 Getting Started
+
+### Development
+
+```bash
+# Start application
+./start_application.bat
+
+# Start ngrok tunnel
+./start_ngrok.bat
+
+# Run complete tests
+./test_ussd_complete.sh
 ```
+
+### Production Deployment
+
+1. Update `application.properties` with production ngrok URL
+2. Verify Africa's Talking dashboard configuration
+3. Test USSD code `*347*426#` from a mobile device
+
+---
+
+## 👥 Team Members
+
+* Balancee Tech Solution - Development Team
+* Africa's Talking - Platform Provider
+
+---
+
+## 📄 License
+
+This project is proprietary software of **Balancee Tech Solution**.
+
+---
+
+## 🆘 Support Contact
+
+* **Africa's Talking Support**
+* Email: [support@africastalking.com](mailto:support@africastalking.com)
+* **Issue:** USSD Service `*347*426#` connectivity problem
+* **Reference:** Balancee Tech Solution Account
+
+---
+
+**Last Updated:** October 2, 2025
+**Status:** Awaiting Africa's Talking platform resolution
+
