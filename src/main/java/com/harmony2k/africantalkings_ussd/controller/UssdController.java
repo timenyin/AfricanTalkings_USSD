@@ -1,359 +1,205 @@
 package com.harmony2k.africantalkings_ussd.controller;
 
-import com.harmony2k.africantalkings_ussd.model.Session;
-import com.harmony2k.africantalkings_ussd.service.BalanceService;
-import com.harmony2k.africantalkings_ussd.service.SessionService;
+import com.harmony2k.africantalkings_ussd.config.AfricasTalkingConfig;
+import com.harmony2k.africantalkings_ussd.service.UssdService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.util.Arrays;
+import jakarta.servlet.http.HttpServletRequest;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 @RestController
 @RequestMapping("/ussd")
 public class UssdController {
 
-    private final SessionService sessionService;
-    private final BalanceService balanceService;
+    @Autowired
+    private UssdService ussdService;
 
-    public UssdController(SessionService sessionService, BalanceService balanceService) {
-        this.sessionService = sessionService;
-        this.balanceService = balanceService;
-    }
+    @Autowired
+    private AfricasTalkingConfig africastalkingConfig;
 
-    @PostMapping(value = "/callback", produces = MediaType.TEXT_PLAIN_VALUE)
-    public String handleUssd(
-            @RequestParam(value = "sessionId", required = false) String sessionId,
-            @RequestParam(value = "serviceCode", required = false) String serviceCode,
-            @RequestParam(value = "phoneNumber", required = false) String phoneNumber,
-            @RequestParam(value = "text", required = false) String text) {
+    private AtomicLong requestCounter = new AtomicLong(0);
 
-        System.out.println("Received USSD request: " +
-                "sessionId=" + sessionId +
-                ", phoneNumber=" + phoneNumber +
-                ", text=" + text);
+    @PostMapping(consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+    public String handleUssdRequest(HttpServletRequest request, @RequestParam Map<String, String> params) {
 
-        // Validate required parameters
-        if (phoneNumber == null || phoneNumber.trim().isEmpty()) {
-            return buildEND("Invalid phone number. Please try again.");
+        long requestId = requestCounter.incrementAndGet();
+
+        // EXTENSIVE LOGGING
+        System.out.println("🚨 ======= AFRICA'S TALKING REQUEST DEBUG =======");
+        System.out.println("🚨 TIMESTAMP: " + java.time.LocalDateTime.now());
+        System.out.println("🚨 REQUEST ID: " + requestId);
+
+        // Log all headers
+        System.out.println("🚨 HEADERS:");
+        Enumeration<String> headerNames = request.getHeaderNames();
+        while (headerNames.hasMoreElements()) {
+            String headerName = headerNames.nextElement();
+            String headerValue = request.getHeader(headerName);
+            System.out.println("🚨   " + headerName + ": " + headerValue);
         }
 
-        if (sessionId == null || sessionId.trim().isEmpty()) {
-            sessionId = "sess_" + System.currentTimeMillis() + "_" + phoneNumber;
-        }
+        // Log all parameters
+        System.out.println("🚨 PARAMETERS:");
+        params.forEach((key, value) -> System.out.println("🚨   " + key + ": " + value));
 
-        // Get or create session
-        Session session = sessionService.getSession(sessionId, phoneNumber);
-        session.touch();
+        // Log remote information
+        System.out.println("🚨 REMOTE INFO:");
+        System.out.println("🚨   Remote Addr: " + request.getRemoteAddr());
+        System.out.println("🚨   Remote Host: " + request.getRemoteHost());
+        System.out.println("🚨   Remote Port: " + request.getRemotePort());
+        System.out.println("🚨   Server Name: " + request.getServerName());
+        System.out.println("🚨   Server Port: " + request.getServerPort());
 
-        // Process input text
-        String[] parts = (text == null || text.trim().isEmpty()) ?
-                new String[0] : text.split("\\*");
+        System.out.println("🚨 =============================================");
 
-        // Handle back navigation (0)
-        if (parts.length > 0 && "0".equals(parts[parts.length - 1])) {
-            parts = Arrays.copyOf(parts, parts.length - 1);
-        }
+        String sessionId = params.get("sessionId");
+        String phoneNumber = params.get("phoneNumber");
+        String serviceCode = params.get("serviceCode");
+        String text = params.get("text");
+        String networkCode = params.get("networkCode");
 
-        // Route based on menu level
+        // Handle case where parameters might have different names
+        if (sessionId == null) sessionId = params.get("sessionID");
+        if (phoneNumber == null) phoneNumber = params.get("phone");
+        if (serviceCode == null) serviceCode = params.get("serviceCode");
+        if (text == null) text = params.get("text");
+        if (networkCode == null) networkCode = params.get("networkCode");
+
         try {
-            if (parts.length == 0) {
-                return buildMainMenu();
+            // If still no sessionId or phoneNumber, return immediate response
+            if (sessionId == null || sessionId.trim().isEmpty() || phoneNumber == null || phoneNumber.trim().isEmpty()) {
+                System.out.println("🚨 RETURNING WELCOME SCREEN (missing params)");
+                return "CON Welcome to Balanceè\n\n1. Start Service\n0. Exit";
             }
 
-            String topLevelChoice = parts[0];
-            switch (topLevelChoice) {
-                case "1": return handleSosFlow(parts, session);
-                case "2": return handleMoneyFlow(parts, session);
-                case "3": return handleProductsFlow(parts, session);
-                case "4": return handleAgentFlow(parts, session);
-                default: return buildEND("Invalid option. Thank you for using Balanceè.");
+            long startTime = System.currentTimeMillis();
+            String response = ussdService.processUssdRequest(sessionId, phoneNumber, serviceCode, text, networkCode);
+            long processingTime = System.currentTimeMillis() - startTime;
+
+            System.out.println("✅ RESPONSE SENT IN " + processingTime + "ms: " + response);
+
+            if (response == null) {
+                response = "CON Welcome to Balanceè\n\n1. Start Service\n0. Exit";
             }
+
+            return response;
+
         } catch (Exception e) {
-            System.err.println("Error processing USSD request: " + e.getMessage());
-            e.printStackTrace();
-            return buildEND("Sorry, an error occurred. Please try again later.");
+            System.err.println("❌ ERROR: " + e.getMessage());
+            return "CON Welcome to Balanceè\n\n1. Start Service\n0. Exit";
         }
     }
 
-    private String buildMainMenu() {
-        return buildCON(
-                "Welcome to Balanceè",
-                "1. SOS or repairs",
-                "2. Money matters",
-                "3. Product purchase",
-                "4. Talk to an Agent"
-        );
+    // Simple endpoint for Africa's Talking connectivity test
+    @PostMapping(value = "/at-test", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+    public String africaTalkingTest(
+            @RequestParam("sessionId") String sessionId,
+            @RequestParam("phoneNumber") String phoneNumber) {
+        System.out.println("✅ Africa's Talking Test Received - Session: " + sessionId);
+        return "CON Africa's Talking Connection Test - SUCCESS\n\n1. Continue\n0. Exit";
     }
 
-    private String handleSosFlow(String[] parts, Session session) {
-        if (parts.length == 1) {
-            return buildCON(
-                    "SOS Services:",
-                    "1. SOS towing help",
-                    "2. Find a mechanic",
-                    "0. Back to main menu"
-            );
-        }
-
-        String subChoice = parts[1];
-
-        if ("1".equals(subChoice)) {
-            // SOS towing help flow
-            if (parts.length == 2) {
-                return buildCON("SOS towing service selected. Please provide your location:");
-            } else if (parts.length == 3) {
-                // User entered location (parts[2])
-                String location = parts[2];
-                session.setData("sos_location", location);
-
-                // Calculate estimated cost based on location
-                int distance = calculateDistance(location);
-                BigDecimal cost = calculateTowingCost(distance);
-
-                return buildCON(
-                        "Estimated towing cost: ₦" + cost + " (Distance: " + distance + "km)",
-                        "1. Confirm and pay 50% deposit",
-                        "2. Cancel request",
-                        "0. Back"
-                );
-            } else if (parts.length >= 4) {
-                String confirmation = parts[3];
-                if ("1".equals(confirmation)) {
-                    return buildEND("SOS towing confirmed! Tow truck dispatched. ETA: 25 mins.");
-                } else {
-                    return buildEND("SOS request cancelled.");
-                }
-            }
-        } else if ("2".equals(subChoice)) {
-            // Find a mechanic flow
-            if (parts.length == 2) {
-                return buildCON("Please enter your location for mechanic search:");
-            } else if (parts.length == 3) {
-                // User entered location (parts[2])
-                String location = parts[2];
-                session.setData("mechanic_location", location);
-
-                return buildCON(
-                        "Nearest mechanics near " + location + ":",
-                        "1. Musa Workshop - 1.5km (ETA: 15 mins)",
-                        "2. Tunde Motors - 2.1km (ETA: 20 mins)",
-                        "3. Akin Garage - 2.8km (ETA: 25 mins)",
-                        "0. Back"
-                );
-            } else if (parts.length >= 4) {
-                String mechanicChoice = parts[3];
-                String mechanicName = "";
-
-                switch (mechanicChoice) {
-                    case "1": mechanicName = "Musa Workshop"; break;
-                    case "2": mechanicName = "Tunde Motors"; break;
-                    case "3": mechanicName = "Akin Garage"; break;
-                    default: return buildEND("Invalid mechanic selection.");
-                }
-
-                return buildEND("Mechanic " + mechanicName + " contacted! They will call you within 2 minutes.");
-            }
-        }
-
-        return buildEND("Invalid SOS service selection.");
+    // Even simpler endpoint for basic connectivity test
+    @GetMapping("/connectivity-test")
+    public String connectivityTest() {
+        System.out.println("✅ Connectivity test received at: " + java.time.LocalDateTime.now());
+        return "CONNECTED_" + System.currentTimeMillis();
     }
 
-    private String handleMoneyFlow(String[] parts, Session session) {
-        if (parts.length == 1) {
-            return buildCON(
-                    "Money Services:",
-                    "1. Check balance",
-                    "2. Add money",
-                    "0. Back to main menu"
-            );
-        }
-
-        String subChoice = parts[1];
-
-        if ("1".equals(subChoice)) {
-            // Check balance
-            BigDecimal walletBalance = balanceService.getWalletBalance(session.getPhoneNumber());
-            BigDecimal creditBalance = balanceService.getCreditBalance(session.getPhoneNumber());
-            return buildEND("Wallet: ₦" + formatMoney(walletBalance) +
-                    ", Credit: ₦" + formatMoney(creditBalance));
-        } else if ("2".equals(subChoice)) {
-            // Add money flow
-            if (parts.length == 2) {
-                return buildCON(
-                        "Add money to:",
-                        "1. Wallet",
-                        "2. Credit",
-                        "0. Back"
-                );
-            } else if (parts.length == 3) {
-                String accountType = parts[2];
-                session.setData("account_type", accountType);
-                return buildCON("Enter amount to add:");
-            } else if (parts.length >= 4) {
-                String amount = parts[3];
-                String accountType = session.getData("account_type");
-                String accountName = "1".equals(accountType) ? "Wallet" : "Credit";
-                return buildEND("₦" + amount + " added to your " + accountName + " successfully!");
-            }
-        }
-
-        return buildEND("Money service completed!");
+    // Fast test endpoint for Africa's Talking
+    @PostMapping(value = "/fast-test", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+    public String fastTest(
+            @RequestParam("sessionId") String sessionId,
+            @RequestParam("phoneNumber") String phoneNumber) {
+        return ussdService.quickTest(sessionId, phoneNumber);
     }
 
-    private String handleProductsFlow(String[] parts, Session session) {
-        if (parts.length == 1) {
-            return buildCON(
-                    "Product Services:",
-                    "1. Fuel",
-                    "2. Car accessories",
-                    "3. Spare parts",
-                    "0. Back to main menu"
-            );
-        }
-
-        String subChoice = parts[1];
-
-        if ("1".equals(subChoice)) {
-            // Fuel submenu
-            if (parts.length == 2) {
-                return buildCON(
-                        "Select Fuel Station:",
-                        "1. Mobil - 1.2km",
-                        "2. Total - 2.5km",
-                        "3. NNPC - 3km",
-                        "0. Back"
-                );
-            } else if (parts.length == 3) {
-                String stationChoice = parts[2];
-                session.setData("fuel_station", stationChoice);
-                return buildCON(
-                        "Select Fuel Type:",
-                        "1. Petrol - ₦250/L",
-                        "2. Diesel - ₦300/L",
-                        "0. Back"
-                );
-            } else if (parts.length == 4) {
-                String fuelType = parts[3];
-                session.setData("fuel_type", fuelType);
-                return buildCON("Enter amount in ₦:");
-            } else if (parts.length >= 5) {
-                String amount = parts[4];
-                return buildEND("Fuel order confirmed! Delivery ETA: 30 mins. Amount: ₦" + amount);
-            }
-        } else if ("2".equals(subChoice)) {
-            // Car accessories submenu
-            if (parts.length == 2) {
-                return buildCON(
-                        "Car Accessories:",
-                        "1. Car mats - ₦8,000",
-                        "2. Phone holder - ₦3,500",
-                        "0. Back"
-                );
-            } else if (parts.length == 3) {
-                String accessoryChoice = parts[2];
-                session.setData("accessory", accessoryChoice);
-                return buildCON("Enter quantity:");
-            } else if (parts.length >= 4) {
-                String quantity = parts[3];
-                String accessory = "1".equals(session.getData("accessory")) ? "Car mats" : "Phone holder";
-                return buildEND("Order confirmed! " + quantity + " x " + accessory + ". ETA: 48hrs.");
-            }
-        } else if ("3".equals(subChoice)) {
-            // Spare parts submenu
-            if (parts.length == 2) {
-                return buildCON(
-                        "Spare Parts:",
-                        "1. Brake pads - ₦12,000",
-                        "2. Oil filter - ₦4,500",
-                        "0. Back"
-                );
-            } else if (parts.length == 3) {
-                String partChoice = parts[2];
-                session.setData("spare_part", partChoice);
-                return buildCON("Enter quantity:");
-            } else if (parts.length >= 4) {
-                String quantity = parts[3];
-                String part = "1".equals(session.getData("spare_part")) ? "Brake pads" : "Oil filter";
-                return buildEND("Order confirmed! " + quantity + " x " + part + ". ETA: 48hrs.");
-            }
-        }
-
-        return buildEND("Invalid product selection");
+    @PostMapping(value = "/events", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+    public String handleUssdEvents(@RequestParam Map<String, String> params) {
+        System.out.println("📊 USSD Event received at: " + java.time.LocalDateTime.now());
+        return "Accepted";
     }
 
-    private String handleAgentFlow(String[] parts, Session session) {
-        if (parts.length == 1) {
-            return buildCON(
-                    "Agent Services:",
-                    "1. Connect to agent",
-                    "2. Request callback",
-                    "0. Back to main menu"
-            );
+    @GetMapping("/health")
+    public Map<String, Object> healthCheck() {
+        Map<String, Object> health = new HashMap<>();
+        health.put("status", "LIVE");
+        health.put("service", "Balanceè USSD");
+        health.put("callback_url", africastalkingConfig.getCallbackUrl());
+        health.put("service_code", "*347*426#");
+        health.put("request_count", requestCounter.get());
+        health.put("timestamp", java.time.Instant.now().toString());
+        health.put("environment", "LIVE PRODUCTION");
+        health.put("response_time", "OPTIMIZED");
+        return health;
+    }
+
+    @GetMapping("/ping")
+    public String ping() {
+        return "ALIVE_" + System.currentTimeMillis();
+    }
+
+    @PostMapping(value = "/simulate", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+    public ResponseEntity<Map<String, Object>> simulateUssdRequest(
+            @RequestParam String phoneNumber,
+            @RequestParam String text) {
+
+        String sessionId = "SIM_" + System.currentTimeMillis();
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("session_id", sessionId);
+        result.put("phone_number", phoneNumber);
+        result.put("input_text", text);
+        result.put("timestamp", java.time.LocalDateTime.now().toString());
+
+        try {
+            String response = ussdService.processUssdRequest(
+                    sessionId, phoneNumber, "*347*426#", text, "62130");
+            result.put("response", response);
+            result.put("status", "success");
+        } catch (Exception e) {
+            result.put("response", "END Simulation error: " + e.getMessage());
+            result.put("status", "error");
+            result.put("error", e.getMessage());
         }
 
-        String subChoice = parts[1];
-
-        if ("1".equals(subChoice)) {
-            if (parts.length == 2) {
-                return buildCON(
-                        "Connect to Agent:",
-                        "1. Voice call (₦7.50/20sec)",
-                        "2. Chat message",
-                        "0. Back"
-                );
-            } else if (parts.length >= 3) {
-                String contactMethod = parts[2];
-                String method = "1".equals(contactMethod) ? "voice call" : "chat message";
-                return buildEND("Connecting you to an agent via " + method + "...");
-            }
-        } else if ("2".equals(subChoice)) {
-            if (parts.length == 2) {
-                return buildCON("Enter your preferred callback time (e.g., 2:00 PM):");
-            } else if (parts.length >= 3) {
-                String callbackTime = parts[2];
-                return buildEND("Callback request received. We'll call you at " + callbackTime + ".");
-            }
-        }
-
-        return buildEND("Invalid agent service selection");
+        return ResponseEntity.ok(result);
     }
 
-    // Helper methods
-    private String buildCON(String... lines) {
-        StringBuilder response = new StringBuilder("CON ");
-        for (int i = 0; i < lines.length; i++) {
-            response.append(lines[i]);
-            if (i < lines.length - 1) {
-                response.append("\n");
-            }
-        }
-        return response.toString();
+    @GetMapping("/config")
+    public Map<String, String> getConfig() {
+        Map<String, String> config = new HashMap<>();
+        config.put("current_ngrok_url", africastalkingConfig.getNgrokUrl());
+        config.put("callback_url", africastalkingConfig.getCallbackUrl());
+        config.put("events_url", africastalkingConfig.getEventsUrl());
+        config.put("username", africastalkingConfig.getUsername());
+        config.put("api_key_set", africastalkingConfig.getApiKey() != null && !africastalkingConfig.getApiKey().isEmpty() ? "YES" : "NO");
+        config.put("note", "Update ngrok.url in application.properties when ngrok restarts");
+        return config;
     }
 
-    private String buildEND(String message) {
-        return "END " + message;
-    }
+    @GetMapping("/test")
+    public ResponseEntity<Map<String, Object>> testEndpoint() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "Balanceè USSD Service is running!");
+        response.put("status", "OK");
+        response.put("timestamp", java.time.LocalDateTime.now().toString());
+        response.put("request_count", requestCounter.get());
+        response.put("callback_url", africastalkingConfig.getCallbackUrl());
 
-    private String formatMoney(BigDecimal amount) {
-        return amount.setScale(2, RoundingMode.HALF_UP).toString();
-    }
+        Map<String, Object> testCustomer = new HashMap<>();
+        testCustomer.put("phone", "08100974728");
+        testCustomer.put("name", "Test User");
+        testCustomer.put("wallet_balance", 15250.0);
+        testCustomer.put("credit_balance", 7500.0);
+        response.put("test_customer", testCustomer);
 
-    // Helper methods for SOS calculations
-    private int calculateDistance(String location) {
-        if (location.toLowerCase().contains("lagos") || location.toLowerCase().contains("mainland")) {
-            return 5;
-        } else if (location.toLowerCase().contains("ikeja") || location.toLowerCase().contains("airport")) {
-            return 8;
-        } else {
-            return 12;
-        }
-    }
-
-    private BigDecimal calculateTowingCost(int distance) {
-        BigDecimal baseCost = new BigDecimal("5000");
-        BigDecimal perKmCost = new BigDecimal("500");
-        return baseCost.add(perKmCost.multiply(new BigDecimal(distance)));
+        return ResponseEntity.ok(response);
     }
 }
